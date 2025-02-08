@@ -15,19 +15,7 @@
   permissions:
     contents: read
   
-  jobs:
-        - name: Set up Go
-          uses: actions/setup-go@v5
-          with:
-            go-version-file: go.mod
-            check-latest: true
-  
-        - name: Download Dependencies
-          run: go mod download
-  
-        - name: Build
-          run: make build
-  
+  jobs:       
     lint:
       name: Lint
       runs-on: ubuntu-latest
