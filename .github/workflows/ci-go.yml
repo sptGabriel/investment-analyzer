@@ -1,0 +1,100 @@
+---
+  name: CI Golang
+  
+  on:
+    pull_request:
+      paths:
+        - "**.go"
+        - "go.mod"
+        - "go.sum"
+  
+  concurrency:
+    group: ci-golang-${{ github.head_ref }}
+    cancel-in-progress: true
+  
+  permissions:
+    contents: read
+  
+  jobs:
+        - name: Set up Go
+          uses: actions/setup-go@v5
+          with:
+            go-version-file: go.mod
+            check-latest: true
+  
+        - name: Download Dependencies
+          run: go mod download
+  
+        - name: Build
+          run: make build
+  
+    lint:
+      name: Lint
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            persist-credentials: false
+  
+        - name: Set up Go
+          uses: actions/setup-go@v5
+          with:
+            go-version-file: go.mod
+            check-latest: true
+  
+        - name: Download Dependencies
+          run: go mod download
+  
+        - name: Install Linters
+          run:
+            make install-linters
+  
+        - name: Run Linters
+          run: |
+            make lint
+            git diff --exit-code
+  
+    go-mod:
+      name: Check go.mod
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            persist-credentials: false
+  
+        - name: Set up Go
+          uses: actions/setup-go@v5
+          with:
+            go-version-file: go.mod
+            check-latest: true
+  
+        - name: Check go.mod
+          run: |
+            go mod tidy
+            git diff --exit-code
+  
+    test:
+      name: Test
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            persist-credentials: false
+  
+        - name: Set up Go
+          uses: actions/setup-go@v5
+          with:
+            go-version-file: go.mod
+            check-latest: true
+  
+        - name: Download Dependencies
+          run: go mod download
+  
+        - name: Download dependencies
+          run: make install-tools
+  
+        - name: Test
+          run: make test
