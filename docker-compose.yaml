@@ -1,0 +1,26 @@
+services:
+  # investment-analyzer:
+  #   build: .
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - .env
+  #   command: /app/card-authorizer-api
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+        
+  postgres:
+    image: public.ecr.aws/docker/library/postgres:14.13-alpine
+    user: postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: investment_analyzer
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
