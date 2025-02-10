@@ -42,9 +42,6 @@ lint:
 	@echo "==> Running gci"
 	@gci write -s standard -s default -s localmodule --skip-generated .
 
-setup: install-tools install-linters
-	@go mod tidy
-
 .PHONY: test
 test:
 	@echo "==> Running tests"
@@ -80,17 +77,6 @@ build: ensure-yq
 	done
 	@echo "==> Build done!"
 
-
-.PHONY: deps-check-go-version
-deps-check-go-version: deps-check-go-install buildfile.yaml
-	@required_version=$$(grep 'go-version' buildfile.yaml | awk '{print $$2}' | tr -d '"'); \
-	current_version=$$(go version | awk '{print $$3}' | sed 's/go//'); \
-	if [ "$$(printf '%s\n' "$$required_version" "$$current_version" | sort -V | head -n1)" = "$$required_version" ]; then \
-		echo "\t\033[1;32mGo version is OK (+$$required_version).\033[0m"; \
-	else \
-		echo "\033[1;31mGo version is less than $$required_version. Please update Go.\033[0m"; \
-		exit 1; \
-	fi
 
 .PHONY: deps-check-go-version
 deps-check-go-version: deps-check-go-install buildfile.yaml

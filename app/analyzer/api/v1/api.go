@@ -1,11 +1,10 @@
 package v1
 
 import (
+	"github.com/go-chi/chi/v5"
 	swhttp "github.com/swaggo/http-swagger"
 
 	swdoc "github.com/sptGabriel/investment-analyzer/docs/swagger" // Swagger content.
-
-	"github.com/go-chi/chi/v5"
 	"github.com/sptGabriel/investment-analyzer/extensions/gbhttp/rest"
 )
 

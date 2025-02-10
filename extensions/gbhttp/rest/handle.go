@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/sptGabriel/investment-analyzer/telemetry/logging"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
+
+	"github.com/sptGabriel/investment-analyzer/telemetry/logging"
 )
 
 func Handle(handler func(r *http.Request) Response) http.HandlerFunc {
