@@ -1,14 +1,17 @@
 services:
-  # investment-analyzer:
-  #   build: .
-  #   ports:
-  #     - "3000:3000"
-  #   env_file:
-  #     - .env
-  #   command: /app/card-authorizer-api
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  investment-analyzer:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_HOST_DIRECT: "postgres"
+      DATABASE_PORT_DIRECT: "5432"
+    command: /app/investment-analyzer-api
+    depends_on:
+      postgres:
+        condition: service_healthy
         
   postgres:
     image: public.ecr.aws/docker/library/postgres:14.13-alpine

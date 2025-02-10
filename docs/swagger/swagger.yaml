@@ -1,0 +1,77 @@
+definitions:
+  rest.ErrorPayload:
+    properties:
+      details:
+        type: object
+      title:
+        example: Message for some error
+        type: string
+      type:
+        example: srn:error:some_error
+        type: string
+    type: object
+  scheme.GenerateReportResponse:
+    properties:
+      accumulated_return:
+        type: number
+      timestamp:
+        type: string
+      total_equity:
+        type: number
+    type: object
+  v1.GenerateReportRequest:
+    properties:
+      end_date:
+        type: string
+      interval:
+        type: string
+      start_date:
+        type: string
+    required:
+    - end_date
+    - interval
+    - start_date
+    type: object
+info:
+  contact: {}
+  description: Investment Analyzer REST API.
+  license:
+    name: Stone Co®
+  title: Investment Analyzer
+  version: 0.0.1
+paths:
+  /api/v1/investment_analyzer/portfolios/{portfolio-id}/reports/:
+    post:
+      consumes:
+      - application/json
+      description: Generates a report based on specified criteria.  This endpoint
+        allows users to retrieve data in a formatted report.  The report parameters
+        (e.g., date range, internval) should be provided in the request body.
+      parameters:
+      - description: Body
+        in: body
+        name: Body
+        required: true
+        schema:
+          $ref: '#/definitions/v1.GenerateReportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/scheme.GenerateReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorPayload'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorPayload'
+      summary: Generate a report
+      tags:
+      - Service
+schemes:
+- http
+swagger: "2.0"

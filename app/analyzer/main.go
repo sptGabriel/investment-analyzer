@@ -16,7 +16,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/sptGabriel/investment-analyzer/app/analyzer/api"
+	v1 "github.com/sptGabriel/investment-analyzer/app/analyzer/api/v1"
 	"github.com/sptGabriel/investment-analyzer/domain/challenge"
+	"github.com/sptGabriel/investment-analyzer/domain/reports"
 	"github.com/sptGabriel/investment-analyzer/extensions/gbdb"
 	"github.com/sptGabriel/investment-analyzer/gateways/assets"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres"
@@ -149,6 +151,14 @@ func startApp(logger *zap.Logger, cfg envs) error {
 	if err != nil {
 		return fmt.Errorf("bulding api server: %w", err)
 	}
+
+	reportGeneratorUC := reports.NewGenerateReportUC(db, tradeRepository, pricesRepository, portfoliosRepository)
+
+	apiV1 := v1.API{
+		ReportHandler: v1.NewReportHandler(reportGeneratorUC),
+	}
+
+	apiV1.Routes(router)
 
 	apiServer := http.Server{
 		Addr:         cfg.ServerAddr,
