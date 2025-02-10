@@ -11,6 +11,8 @@ import (
 	"github.com/sptGabriel/investment-analyzer/extensions/gblib"
 )
 
+//go:generate moq -stub -pkg challenge -out setup_challenge_mocks.go . csvServices settingsRepository assetsRepository pricesRepository portfolioRepository tradesRepository
+
 type settingsRepository interface {
 	IsCsvImported(context.Context) (bool, error)
 	SetCsvImported(context.Context) error
@@ -39,11 +41,11 @@ type csvServices interface {
 	GetTrades() []ports.TradeCSVDTO
 }
 
-type ImportCSVDataInput struct{}
+type SetupChallengeInput struct{}
 
-type ImportCSVDataOutput struct{}
+type SetupChallengeOutput struct{}
 
-type importCSVUC struct {
+type setupChallengeUC struct {
 	csvReader           csvServices
 	settingsRepository  settingsRepository
 	assetsRepository    assetsRepository
@@ -53,24 +55,24 @@ type importCSVUC struct {
 	workers             int
 }
 
-func (s importCSVUC) Execute(ctx context.Context, _ ImportCSVDataInput) (ImportCSVDataOutput, error) {
+func (s setupChallengeUC) Execute(ctx context.Context, _ SetupChallengeInput) (SetupChallengeOutput, error) {
 	imported, err := s.settingsRepository.IsCsvImported(ctx)
 	if err != nil {
-		return ImportCSVDataOutput{}, err
+		return SetupChallengeOutput{}, err
 	}
 
 	if imported {
-		return ImportCSVDataOutput{}, nil
+		return SetupChallengeOutput{}, nil
 	}
 
 	assetA := entities.MustAsset(vos.MustID("84b3cf08-db0c-46aa-9a3c-cb97c98337ec"), "A")
 	assetB := entities.MustAsset(vos.MustID("b94b8afb-dc8a-450f-8ebc-83cabe3b3c3a"), "B")
 	if err := s.assetsRepository.Upsert(ctx, assetA); err != nil {
-		return ImportCSVDataOutput{}, fmt.Errorf("%w:on upserting asset A", err)
+		return SetupChallengeOutput{}, fmt.Errorf("%w:on upserting asset A", err)
 	}
 
 	if err := s.assetsRepository.Upsert(ctx, assetB); err != nil {
-		return ImportCSVDataOutput{}, fmt.Errorf("%w:on upserting asset B", err)
+		return SetupChallengeOutput{}, fmt.Errorf("%w:on upserting asset B", err)
 	}
 
 	s.pricesRepository.Delete(ctx)
@@ -80,14 +82,14 @@ func (s importCSVUC) Execute(ctx context.Context, _ ImportCSVDataInput) (ImportC
 		assetA: assetA,
 		assetB: assetB,
 	}); err != nil {
-		return ImportCSVDataOutput{}, err
+		return SetupChallengeOutput{}, err
 	}
 
 	if err := s.importTrades(ctx, importInput{
 		assetA: assetA,
 		assetB: assetB,
 	}); err != nil {
-		return ImportCSVDataOutput{}, err
+		return SetupChallengeOutput{}, err
 	}
 
 	alicePortID := vos.MustID("408186c6-b76a-4ad6-8d4a-9ace3762b997")
@@ -98,25 +100,25 @@ func (s importCSVUC) Execute(ctx context.Context, _ ImportCSVDataInput) (ImportC
 		map[string]entities.Position{},
 	)
 	if err != nil {
-		return ImportCSVDataOutput{}, err
+		return SetupChallengeOutput{}, err
 	}
 
 	if err := s.portfolioRepository.Upsert(ctx, portfolio); err != nil {
-		return ImportCSVDataOutput{}, fmt.Errorf("erro upsertando portfolio: %w", err)
+		return SetupChallengeOutput{}, fmt.Errorf("erro upsertando portfolio: %w", err)
 	}
 
 	if err := s.settingsRepository.SetCsvImported(ctx); err != nil {
-		return ImportCSVDataOutput{}, fmt.Errorf("%w:on set csv to imported", err)
+		return SetupChallengeOutput{}, fmt.Errorf("%w:on set csv to imported", err)
 	}
 
-	return ImportCSVDataOutput{}, nil
+	return SetupChallengeOutput{}, nil
 }
 
 type importInput struct {
 	assetA, assetB entities.Asset
 }
 
-func (s importCSVUC) importPrices(ctx context.Context, input importInput) error {
+func (s setupChallengeUC) importPrices(ctx context.Context, input importInput) error {
 	pricesCSV := s.csvReader.GetPrices()
 	prices := make([]entities.Price, 0, len(pricesCSV))
 
@@ -142,7 +144,7 @@ func (s importCSVUC) importPrices(ctx context.Context, input importInput) error 
 	return nil
 }
 
-func (s importCSVUC) importTrades(ctx context.Context, input importInput) error {
+func (s setupChallengeUC) importTrades(ctx context.Context, input importInput) error {
 	tradesCSV := s.csvReader.GetTrades()
 	trades := make([]entities.Trade, 0, len(tradesCSV))
 
@@ -176,7 +178,7 @@ func (s importCSVUC) importTrades(ctx context.Context, input importInput) error 
 	return s.tradesRepository.SaveTradesBatch(ctx, trades)
 }
 
-func NewImporterService(
+func NewSetupChallenge(
 	db *gbdb.Database,
 	tx gbdb.Transactioner,
 	csvReader csvServices,
@@ -185,9 +187,9 @@ func NewImporterService(
 	pricesRepository pricesRepository,
 	portfolioRepository portfolioRepository,
 	tradesRepository tradesRepository,
-) gblib.UseCase[ImportCSVDataInput, ImportCSVDataOutput] {
+) gblib.UseCase[SetupChallengeInput, SetupChallengeOutput] {
 	return gblib.New(
-		importCSVUC{
+		setupChallengeUC{
 			csvReader:           csvReader,
 			settingsRepository:  settingsRepository,
 			assetsRepository:    assetsRepository,
