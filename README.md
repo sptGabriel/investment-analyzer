@@ -148,6 +148,8 @@ curl --location 'localhost:3000/api/v1/investment_analyzer/portfolios/408186c6-b
   }'
 ```
 
+para fins da finalização do desáfio, só será possível com esse portfolio-id que é o de alice: 408186c6-b76a-4ad6-8d4a-9ace3762b997.
+
 ### Acesso à Documentação Swagger
 
 Se configurado, a rota Swagger estará em:
@@ -164,3 +166,56 @@ http://localhost:3000/docs/v1/investment_analyzer/swagger/index.html
 “Considerando um patrimônio inicial de R$ 100.000,00, os arquivos de exemplo (march_2021_trades.csv, march_2021_pricesA.csv e march_2021_pricesB.csv) e o retorno que Alice conseguiu com seus trades, seria melhor para Alice ter comprado 100% no ativo A ou 100% no ativo B no início do dia ao invés de operar ao longo do dia?”
 
 
+Se formos considera o Exemplo 1:
+
+### Exemplo 1
+
+Alice gostaria de ver o relatório de 1 de março de 2021 até 7 de março de 2021 com uma taxa de amostragem de 10 min.
+
+#### 3 primeiras linhas do relatório
+
+| timestamp           | Patrimônio Total | Rentabilidade Acumulada |
+| ------------------- | ---------------- | ----------------------- |
+| 2021-03-01 10:00:00 |        100.000,0 |                 0,00000 |
+| 2021-03-01 10:10:00 |        100.024,0 |                 0,00024 |
+| 2021-03-01 10:20:00 |         99.919,0 |                -0,00081 |
+
+#### 3 últimas linhas do relatório
+
+| timestamp           | Patrimônio Total | Rentabilidade Acumulada |
+| ------------------- | ---------------- | ----------------------- |
+| 2021-03-07 17:30:00 |         99.575,0 |                -0,00425 |
+| 2021-03-07 17:40:00 |         98.972,0 |                -0,01028 |
+| 2021-03-07 17:50:00 |         99.397,0 |                -0,00603 |
+
+onde o patrimônio total no final do dia foi de: 99.397,0, a melhor estrátegia é comprar o ativo B no cenário 'buy and hold'.
+Ativo B - Patrimônio final: R$99958.11 (Compra a R$23.87, Venda a R$23.75)
+
+Já no exemplo 2:
+
+### Exemplo 2
+
+Alice gostaria de ver o relatório de 5 de março de 2021 até 12 de março de 2021 com uma taxa de amostragem de 10 min.
+
+#### 3 primeiras linhas do relatório
+
+| timestamp           | Patrimônio Total | Rentabilidade Acumulada |
+| ------------------- | ---------------- | ----------------------- |
+| 2021-03-05 10:00:00 |         99.168,0 |                0,000000 |
+| 2021-03-05 10:10:00 |         99.019,0 |               -0,001503 |
+| 2021-03-05 10:20:00 |         99.262,0 |                0,000948 |
+
+#### 3 últimas linhas do relatório
+
+| timestamp           | Patrimônio Total | Rentabilidade Acumulada |
+| ------------------- | ---------------- | ----------------------- |
+| 2021-03-12 17:30:00 |         99.062,0 |               -0,001069 |
+| 2021-03-12 17:40:00 |         99.508,0 |                0,003429 |
+| 2021-03-12 17:50:00 |         99.317,0 |                0,001503 |
+
+ o patrimônio total no final do dia foi de: 99.317,0
+ 
+  Ativo A - Patrimônio final: R$98999.17 (Compra a R$23.97, Venda a R$23.92)
+  Ativo B - Patrimônio final: R$100841.75 (Compra a R$23.87, Venda a R$23.75)
+
+Melhor comprar o ativo B no cenário 'buy and hold'.

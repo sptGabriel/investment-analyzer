@@ -23,6 +23,7 @@ func NewServer(logger *zap.Logger) (*chi.Mux, error) {
 	router := chi.NewRouter()
 	router.Use(
 		middlewares.WithLogger(logger),
+		middlewares.RequestDataMiddleware,
 		redMetrics.Handle(),
 		chimid.Recoverer,
 		chimid.Timeout(defaultTimeout),

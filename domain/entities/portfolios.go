@@ -74,6 +74,11 @@ func (p *Portfolio) ApplyTrade(t Trade) error {
 	}
 }
 
+func (p *Portfolio) SetInitialCash(v vos.Decimal) {
+	p.initialCash = v
+	p.cash = v
+}
+
 func NewPortfolio(
 	id PortfolioID,
 	initialCash vos.Decimal,
