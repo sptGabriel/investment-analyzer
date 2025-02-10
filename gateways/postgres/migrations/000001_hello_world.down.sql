@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS tg_set_updated_at;
