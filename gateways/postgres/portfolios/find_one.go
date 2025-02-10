@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/sptGabriel/investment-analyzer/domain"
 	"github.com/sptGabriel/investment-analyzer/domain/entities"
 	"github.com/sptGabriel/investment-analyzer/domain/vos"
 )
@@ -31,8 +32,11 @@ func (r Repository) FindOne(
 	}
 	defer rows.Close()
 
+	foundAnyRow := false
 	positionsMap := make(map[string]entities.Position)
 	for rows.Next() {
+		foundAnyRow = true
+
 		var assetID sql.NullString
 		var quantity sql.NullInt64
 
@@ -55,6 +59,10 @@ func (r Repository) FindOne(
 		}
 
 		positionsMap[assetID.String] = p
+	}
+
+	if !foundAnyRow {
+		return entities.Portfolio{}, domain.ErrNotFound
 	}
 
 	return entities.NewPortfolio(

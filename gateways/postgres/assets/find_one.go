@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/sptGabriel/investment-analyzer/domain"
 	"github.com/sptGabriel/investment-analyzer/domain/entities"
@@ -15,7 +15,7 @@ import (
 func (r Repository) FindOneBySymbol(
 	ctx context.Context, symbol string,
 ) (entities.Asset, error) {
-	const query = `SELECT id, symbol from assets where id = $1;`
+	const query = `SELECT id from assets where symbol = $1;`
 
 	var (
 		assetID string
@@ -27,7 +27,7 @@ func (r Repository) FindOneBySymbol(
 		&assetID,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return entities.Asset{}, fmt.Errorf("%w:asset not found", domain.ErrConflict)
+			return entities.Asset{}, fmt.Errorf("%w:asset not found", domain.ErrNotFound)
 		}
 
 		return entities.Asset{}, err
