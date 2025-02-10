@@ -92,3 +92,16 @@ func NewPortfolio(
 		positions:   positions,
 	}, nil
 }
+
+func MustPortfilio(
+	id PortfolioID,
+	initialCash vos.Decimal,
+	cash vos.Decimal,
+) Portfolio {
+	return Portfolio{
+		id:          id,
+		initialCash: initialCash,
+		cash:        cash,
+		positions:   map[string]Position{},
+	}
+}
