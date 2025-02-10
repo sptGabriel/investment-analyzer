@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
 	"github.com/sptGabriel/investment-analyzer/extensions/utils"
 )
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
 	"time"
 
 	"github.com/sptGabriel/investment-analyzer/domain/entities"
@@ -56,18 +54,4 @@ func AuditInterceptor(
 
 		return result, err
 	}
-}
-
-// Extrai IP e Porta do Contexto
-func extractIPAndPort(ctx context.Context) (string, string) {
-	ip := "unknown"
-	port := "unknown"
-
-	if request, ok := ctx.Value("request").(*http.Request); ok {
-		host, portStr, _ := net.SplitHostPort(request.RemoteAddr)
-		ip = host
-		port = portStr
-	}
-
-	return ip, port
 }
