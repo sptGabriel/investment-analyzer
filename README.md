@@ -83,7 +83,7 @@ onde \( t_0 \) é o instante inicial (por exemplo, o início do período de aná
 ### Clonando o Repositório
 
 ```bash
-git clone https://github.com/usuario/investment-analyzer.git
+git clone https://github.com/sptGabrie/investment-analyzer.git
 cd investment-analyzer
 ```
 
