@@ -1,0 +1,114 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "Investment Analyzer REST API.",
+        "title": "Investment Analyzer",
+        "contact": {},
+        "license": {
+            "name": "Stone Co®"
+        },
+        "version": "0.0.1"
+    },
+    "paths": {
+        "/api/v1/investment_analyzer/portfolios/{portfolio-id}/reports/": {
+            "post": {
+                "description": "Generates a report based on specified criteria.  This endpoint allows users to retrieve data in a formatted report.  The report parameters (e.g., date range, internval) should be provided in the request body.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Service"
+                ],
+                "summary": "Generate a report",
+                "parameters": [
+                    {
+                        "description": "Body",
+                        "name": "Body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.GenerateReportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/scheme.GenerateReportResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/rest.ErrorPayload"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/rest.ErrorPayload"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "rest.ErrorPayload": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "object"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Message for some error"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "srn:error:some_error"
+                }
+            }
+        },
+        "scheme.GenerateReportResponse": {
+            "type": "object",
+            "properties": {
+                "accumulated_return": {
+                    "type": "number"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "total_equity": {
+                    "type": "number"
+                }
+            }
+        },
+        "v1.GenerateReportRequest": {
+            "type": "object",
+            "required": [
+                "end_date",
+                "interval",
+                "start_date"
+            ],
+            "properties": {
+                "end_date": {
+                    "type": "string"
+                },
+                "interval": {
+                    "type": "string"
+                },
+                "start_date": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

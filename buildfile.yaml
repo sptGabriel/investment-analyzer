@@ -1,0 +1,5 @@
+application: investment-analyzer
+go-version: "1.23.6"
+binaries:
+  - name: api
+    main: ./app/analyzer
