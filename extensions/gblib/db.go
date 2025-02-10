@@ -6,8 +6,8 @@ import (
 	"github.com/sptGabriel/investment-analyzer/extensions/gbdb"
 )
 
-func WithDB(database *gbdb.Database) interceptor {
-	return func(ctx context.Context, input interface{}, handler handlerFunc) (interface{}, error) {
+func WithDB(database *gbdb.Database) Interceptor {
+	return func(ctx context.Context, input interface{}, handler InterceptorFunc) (interface{}, error) {
 		var result interface{}
 		var err error
 
@@ -19,8 +19,8 @@ func WithDB(database *gbdb.Database) interceptor {
 	}
 }
 
-func WithTx(tx gbdb.Transactioner) interceptor {
-	return func(ctx context.Context, input interface{}, handler handlerFunc) (interface{}, error) {
+func WithTx(tx gbdb.Transactioner) Interceptor {
+	return func(ctx context.Context, input interface{}, handler InterceptorFunc) (interface{}, error) {
 		var (
 			result interface{}
 			err    error

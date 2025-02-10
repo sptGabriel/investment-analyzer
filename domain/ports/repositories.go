@@ -24,6 +24,9 @@ type TradesRepository interface {
 	FindTradesByRange(
 		ctx context.Context, start, end time.Time,
 	) ([]entities.Trade, error)
+	FindTradesBeforeDate(
+		context.Context, time.Time,
+	) ([]entities.Trade, error)
 }
 
 type PortfolioRepository interface {

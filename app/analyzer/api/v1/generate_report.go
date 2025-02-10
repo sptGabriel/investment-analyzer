@@ -15,9 +15,10 @@ import (
 const dateLayout = "2006-01-02 15:04:05"
 
 type GenerateReportRequest struct {
-	StartDate string `json:"start_date" validate:"required"`
-	EndDate   string `json:"end_date" validate:"required"`
-	Interval  string `json:"interval" validate:"required"`
+	StartDate   string  `json:"start_date" validate:"required"`
+	EndDate     string  `json:"end_date" validate:"required"`
+	Interval    string  `json:"interval" validate:"required"`
+	InitialCash float64 `json:"initial_cash" validate:"required"`
 }
 
 // Generate Report

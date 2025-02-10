@@ -15,7 +15,7 @@ import (
 )
 
 type GenerateReportInput struct {
-	PortfolioID string
+	PortfolioID string // should be ignored on challenge
 	StartDate   time.Time
 	EndDate     time.Time
 	Interval    time.Duration
@@ -34,14 +34,12 @@ type generateReportUC struct {
 func (uc generateReportUC) Execute(
 	ctx context.Context, input GenerateReportInput,
 ) (GenerateReportOutput, error) {
-	portfolioID, err := vos.ParseID(input.PortfolioID)
+	portfolio, err := uc.rebuildPortfolioSnapshot(ctx, input.PortfolioID, input.StartDate)
 	if err != nil {
 		return GenerateReportOutput{}, err
 	}
 
-	portfolio, err := uc.portfolioRepository.FindOne(
-		ctx, portfolioID,
-	)
+	initialValue, err := uc.calculatePortfolioValue(ctx, portfolio, input.StartDate)
 	if err != nil {
 		return GenerateReportOutput{}, err
 	}
@@ -50,17 +48,94 @@ func (uc generateReportUC) Execute(
 		Reports: []ports.ReportDTO{
 			{
 				Timestamp:         input.StartDate,
-				PortfolioValue:    portfolio.InitialCash().Float64(),
+				PortfolioValue:    initialValue.RoundUP(1),
 				AccumulatedReturn: 0.0,
 			},
 		},
 	}
 
-	trades, err := uc.tradesRepository.FindTradesByRange(
-		ctx, input.StartDate, input.EndDate,
-	)
+	reports, err := uc.processTradesInInterval(ctx, input, portfolio, initialValue)
 	if err != nil {
 		return GenerateReportOutput{}, err
+	}
+
+	output.Reports = append(output.Reports, reports...)
+
+	return output, nil
+}
+
+func (uc generateReportUC) calculateAccumulatedReturn(
+	initialValue, currentValue vos.Decimal,
+) float64 {
+	if initialValue.IsZero() {
+		return 0
+	}
+
+	accReturn := currentValue.Div(
+		initialValue).Sub(vos.ParseToDecimal(1))
+
+	return accReturn.RoundUP(6)
+}
+
+func (uc generateReportUC) rebuildPortfolioSnapshot(
+	ctx context.Context, portfolioID string, startDate time.Time,
+) (entities.Portfolio, error) {
+	id, err := vos.ParseID(portfolioID)
+	if err != nil {
+		return entities.Portfolio{}, err
+	}
+
+	portfolio, err := uc.portfolioRepository.FindOne(ctx, id)
+	if err != nil {
+		return entities.Portfolio{}, err
+	}
+
+	snapShot, err := uc.tradesRepository.FindTradesBeforeDate(ctx, startDate)
+	if err != nil {
+		return entities.Portfolio{}, err
+	}
+
+	for _, trade := range snapShot {
+		if err := portfolio.ApplyTrade(trade); err != nil {
+			return entities.Portfolio{}, fmt.Errorf("on apply snapShot: %w", err)
+		}
+	}
+
+	return portfolio, nil
+}
+
+func (uc generateReportUC) calculatePortfolioValue(
+	ctx context.Context, portfolio entities.Portfolio, at time.Time,
+) (vos.Decimal, error) {
+	total := portfolio.Cash()
+
+	for _, pos := range portfolio.Positions() {
+		price, err := uc.pricesRepository.FindOneByTime(ctx, ports.FindOneByTimeInput{
+			Date:    at,
+			AssetID: pos.AssetID(),
+		})
+		if err != nil {
+			if errors.Is(err, domain.ErrNotFound) {
+				continue
+			}
+			return vos.Decimal{}, fmt.Errorf("%w: on find one by time", err)
+		}
+
+		positionValue := price.Value().Mul(vos.ParseToDecimalFromInt(pos.Quantity()))
+		total = total.Add(positionValue)
+	}
+
+	return total, nil
+}
+
+func (uc generateReportUC) processTradesInInterval(
+	ctx context.Context, input GenerateReportInput, portfolio entities.Portfolio, initialValue vos.Decimal,
+) ([]ports.ReportDTO, error) {
+	reports := make([]ports.ReportDTO, 0)
+
+	rangeTrades, err := uc.tradesRepository.FindTradesByRange(ctx, input.StartDate, input.EndDate)
+	if err != nil {
+		return nil, err
 	}
 
 	currentTime := input.StartDate
@@ -70,51 +145,26 @@ func (uc generateReportUC) Execute(
 			windowEnd = input.EndDate
 		}
 
-		intervalTrades := uc.filterTrades(trades, currentTime, windowEnd)
+		intervalTrades := uc.filterTrades(rangeTrades, currentTime, windowEnd)
 		for _, trade := range intervalTrades {
 			portfolio.ApplyTrade(trade)
 		}
 
-		currentValue := portfolio.Cash()
-		for _, pos := range portfolio.Positions() {
-			price, err := uc.pricesRepository.FindOneByTime(ctx, ports.FindOneByTimeInput{
-				Date:    windowEnd,
-				AssetID: pos.AssetID(),
-			})
-			if err != nil {
-				if errors.Is(err, domain.ErrNotFound) {
-					continue
-				}
-
-				return GenerateReportOutput{}, fmt.Errorf("%w:on find one by time", err)
-			}
-
-			positionValue := price.Value().Mul(vos.ParseToDecimalFromInt(pos.Quantity()))
-			currentValue = currentValue.Add(positionValue)
+		currentValue, err := uc.calculatePortfolioValue(ctx, portfolio, windowEnd)
+		if err != nil {
+			return nil, err
 		}
 
-		accReturn := uc.calculateAccumulatedReturn(portfolio.InitialCash(), currentValue)
-
-		output.Reports = append(output.Reports, ports.ReportDTO{
+		reports = append(reports, ports.ReportDTO{
 			Timestamp:         windowEnd,
-			PortfolioValue:    currentValue.RoundBank(1),
-			AccumulatedReturn: accReturn.RoundBank(5),
+			PortfolioValue:    currentValue.Float64(),
+			AccumulatedReturn: uc.calculateAccumulatedReturn(initialValue, currentValue),
 		})
 
 		currentTime = currentTime.Add(input.Interval)
 	}
 
-	return output, nil
-}
-
-func (uc generateReportUC) calculateAccumulatedReturn(
-	initialValue, currentValue vos.Decimal,
-) vos.Decimal {
-	if initialValue.IsZero() {
-		return initialValue
-	}
-
-	return currentValue.Div(initialValue).Sub(vos.ParseToDecimal(1))
+	return reports, nil
 }
 
 func (uc generateReportUC) filterTrades(

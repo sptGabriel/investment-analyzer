@@ -97,6 +97,9 @@ var _ ports.TradesRepository = &TradesRepositoryMock{}
 //
 //		// make and configure a mocked ports.TradesRepository
 //		mockedTradesRepository := &TradesRepositoryMock{
+//			FindTradesBeforeDateFunc: func(contextMoqParam context.Context, timeMoqParam time.Time) ([]entities.Trade, error) {
+//				panic("mock out the FindTradesBeforeDate method")
+//			},
 //			FindTradesByRangeFunc: func(ctx context.Context, start time.Time, end time.Time) ([]entities.Trade, error) {
 //				panic("mock out the FindTradesByRange method")
 //			},
@@ -107,11 +110,21 @@ var _ ports.TradesRepository = &TradesRepositoryMock{}
 //
 //	}
 type TradesRepositoryMock struct {
+	// FindTradesBeforeDateFunc mocks the FindTradesBeforeDate method.
+	FindTradesBeforeDateFunc func(contextMoqParam context.Context, timeMoqParam time.Time) ([]entities.Trade, error)
+
 	// FindTradesByRangeFunc mocks the FindTradesByRange method.
 	FindTradesByRangeFunc func(ctx context.Context, start time.Time, end time.Time) ([]entities.Trade, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// FindTradesBeforeDate holds details about calls to the FindTradesBeforeDate method.
+		FindTradesBeforeDate []struct {
+			// ContextMoqParam is the contextMoqParam argument value.
+			ContextMoqParam context.Context
+			// TimeMoqParam is the timeMoqParam argument value.
+			TimeMoqParam time.Time
+		}
 		// FindTradesByRange holds details about calls to the FindTradesByRange method.
 		FindTradesByRange []struct {
 			// Ctx is the ctx argument value.
@@ -122,7 +135,48 @@ type TradesRepositoryMock struct {
 			End time.Time
 		}
 	}
-	lockFindTradesByRange sync.RWMutex
+	lockFindTradesBeforeDate sync.RWMutex
+	lockFindTradesByRange    sync.RWMutex
+}
+
+// FindTradesBeforeDate calls FindTradesBeforeDateFunc.
+func (mock *TradesRepositoryMock) FindTradesBeforeDate(contextMoqParam context.Context, timeMoqParam time.Time) ([]entities.Trade, error) {
+	callInfo := struct {
+		ContextMoqParam context.Context
+		TimeMoqParam    time.Time
+	}{
+		ContextMoqParam: contextMoqParam,
+		TimeMoqParam:    timeMoqParam,
+	}
+	mock.lockFindTradesBeforeDate.Lock()
+	mock.calls.FindTradesBeforeDate = append(mock.calls.FindTradesBeforeDate, callInfo)
+	mock.lockFindTradesBeforeDate.Unlock()
+	if mock.FindTradesBeforeDateFunc == nil {
+		var (
+			tradesOut []entities.Trade
+			errOut    error
+		)
+		return tradesOut, errOut
+	}
+	return mock.FindTradesBeforeDateFunc(contextMoqParam, timeMoqParam)
+}
+
+// FindTradesBeforeDateCalls gets all the calls that were made to FindTradesBeforeDate.
+// Check the length with:
+//
+//	len(mockedTradesRepository.FindTradesBeforeDateCalls())
+func (mock *TradesRepositoryMock) FindTradesBeforeDateCalls() []struct {
+	ContextMoqParam context.Context
+	TimeMoqParam    time.Time
+} {
+	var calls []struct {
+		ContextMoqParam context.Context
+		TimeMoqParam    time.Time
+	}
+	mock.lockFindTradesBeforeDate.RLock()
+	calls = mock.calls.FindTradesBeforeDate
+	mock.lockFindTradesBeforeDate.RUnlock()
+	return calls
 }
 
 // FindTradesByRange calls FindTradesByRangeFunc.

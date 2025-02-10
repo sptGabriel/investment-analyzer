@@ -26,8 +26,8 @@ func (c Decimal) Float64() float64 {
 	return c.value.InexactFloat64()
 }
 
-func (c Decimal) RoundBank(value int) float64 {
-	return c.value.RoundBank(int32(value)).InexactFloat64()
+func (c Decimal) RoundUP(value int) float64 {
+	return c.value.RoundUp(int32(value)).InexactFloat64()
 }
 
 func (c Decimal) IsZero() bool {

@@ -20,13 +20,16 @@ import (
 	"github.com/sptGabriel/investment-analyzer/domain/challenge"
 	"github.com/sptGabriel/investment-analyzer/domain/reports"
 	"github.com/sptGabriel/investment-analyzer/extensions/gbdb"
+	"github.com/sptGabriel/investment-analyzer/extensions/gblib"
 	"github.com/sptGabriel/investment-analyzer/gateways/assets"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres"
 	assetsRepo "github.com/sptGabriel/investment-analyzer/gateways/postgres/assets"
+	"github.com/sptGabriel/investment-analyzer/gateways/postgres/auditlogs"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/portfolios"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/prices"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/settings"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/trades"
+	"github.com/sptGabriel/investment-analyzer/interceptors"
 	"github.com/sptGabriel/investment-analyzer/telemetry"
 	"github.com/sptGabriel/investment-analyzer/telemetry/logging"
 )
@@ -122,6 +125,7 @@ func startApp(logger *zap.Logger, cfg envs) error {
 	assetsRepository := assetsRepo.New(db)
 	portfoliosRepository := portfolios.New(db)
 	settingsRepository := settings.New(db)
+	auditRepository := auditlogs.New(db)
 
 	csvImported := false
 	if err := db.With(ctx, func(ctx context.Context) error {
@@ -154,8 +158,14 @@ func startApp(logger *zap.Logger, cfg envs) error {
 
 	reportGeneratorUC := reports.NewGenerateReportUC(db, tradeRepository, pricesRepository, portfoliosRepository)
 
+	reportGeneratorUCWithAudit := gblib.New(
+		reportGeneratorUC,
+		gblib.WithDB(db),
+		interceptors.AuditInterceptor(auditRepository),
+	)
+
 	apiV1 := v1.API{
-		ReportHandler: v1.NewReportHandler(reportGeneratorUC),
+		ReportHandler: v1.NewReportHandler(reportGeneratorUCWithAudit),
 	}
 
 	apiV1.Routes(router)
