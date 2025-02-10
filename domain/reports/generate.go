@@ -86,7 +86,6 @@ func (uc generateReportUC) Execute(
 					continue
 				}
 
-				fmt.Println("on err")
 				return GenerateReportOutput{}, fmt.Errorf("%w:on find one by time", err)
 			}
 

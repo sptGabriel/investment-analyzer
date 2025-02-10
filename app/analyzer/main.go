@@ -125,11 +125,11 @@ func startApp(logger *zap.Logger, cfg envs) error {
 			return fmt.Errorf("on csv reader setup: %w", err)
 		}
 
-		setupChallengeUC := challenge.NewImporterService(
+		setupChallengeUC := challenge.NewSetupChallenge(
 			db, tx, csvReader, settingsRepository, assetsRepository,
 			pricesRepository, portfoliosRepository, tradeRepository)
 
-		if _, err = setupChallengeUC.Execute(ctx, challenge.ImportCSVDataInput{}); err != nil {
+		if _, err = setupChallengeUC.Execute(ctx, challenge.SetupChallengeInput{}); err != nil {
 			return fmt.Errorf("on import csv data: %w", err)
 		}
 	}

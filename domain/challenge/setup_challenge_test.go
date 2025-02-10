@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/sptGabriel/investment-analyzer/domain"
 	"github.com/sptGabriel/investment-analyzer/domain/entities"
 	"github.com/sptGabriel/investment-analyzer/domain/ports"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSetupChallenge(t *testing.T) {

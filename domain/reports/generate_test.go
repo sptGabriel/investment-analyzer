@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/sptGabriel/investment-analyzer/domain"
 	"github.com/sptGabriel/investment-analyzer/domain/entities"
 	"github.com/sptGabriel/investment-analyzer/domain/ports"
 	"github.com/sptGabriel/investment-analyzer/domain/ports/mocks"
@@ -61,6 +62,148 @@ func TestGenerate(t *testing.T) {
 		want    []ports.ReportDTO
 		wantErr error
 	}{
+		{
+			name: "big interval triggers windowEnd.After(...)",
+			args: args{
+				ctx: context.TODO(),
+				input: GenerateReportInput{
+					PortfolioID: "02f168da-4ee6-4876-9821-5be6764e6eb1",
+					StartDate:   time.Date(2021, 3, 1, 10, 0, 0, 0, time.UTC),
+					EndDate:     time.Date(2021, 3, 1, 10, 20, 0, 0, time.UTC),
+					Interval:    30 * time.Minute, // maior que 20min
+				},
+			},
+			setup: func(t *testing.T) generateReportUC {
+				return generateReportUC{
+					tradesRepository: &mocks.TradesRepositoryMock{
+						FindTradesByRangeFunc: func(ctx context.Context, start, end time.Time) ([]entities.Trade, error) {
+							return []entities.Trade{
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetAID, "A"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.86),
+									200,
+									time.Date(2021, 3, 1, 10, 4, 23, 0, time.UTC),
+								),
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetBID, "B"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.79),
+									100,
+									time.Date(2021, 3, 1, 10, 5, 55, 0, time.UTC),
+								),
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetAID, "A"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.89),
+									300,
+									time.Date(2021, 3, 1, 10, 9, 20, 0, time.UTC),
+								),
+							}, nil
+						},
+					},
+					pricesRepository: &mocks.PricesRepositoryMock{
+						FindOneByTimeFunc: func(_ context.Context, input ports.FindOneByTimeInput) (entities.Price, error) {
+							if price, ok := pricesMap[priceKey{
+								assetID: input.AssetID,
+								date:    input.Date,
+							}]; ok {
+								return price, nil
+							}
+							return entities.Price{}, errors.New("price not found")
+						},
+					},
+					portfolioRepository: &mocks.PortfolioRepositoryMock{
+						FindOneFunc: func(
+							_ context.Context, id entities.PortfolioID,
+						) (entities.Portfolio, error) {
+							return entities.NewPortfolio(
+								id,
+								vos.ParseToDecimal(100000.0),
+								vos.ParseToDecimal(100000.0),
+								map[string]entities.Position{},
+							)
+						},
+					},
+				}
+			},
+			want: []ports.ReportDTO{
+				{
+					Timestamp:         time.Date(2021, 3, 1, 10, 0, 0, 0, time.UTC),
+					PortfolioValue:    100000,
+					AccumulatedReturn: 0.0,
+				},
+				{
+					Timestamp:         time.Date(2021, 3, 1, 10, 20, 0, 0, time.UTC),
+					PortfolioValue:    99919,
+					AccumulatedReturn: -0.00081,
+				},
+			},
+		},
+		{
+			name: "should return err when find trades",
+			args: args{
+				ctx: context.TODO(),
+				input: GenerateReportInput{
+					PortfolioID: "02f168da-4ee6-4876-9821-5be6764e6eb1",
+				},
+			},
+			setup: func(t *testing.T) generateReportUC {
+				return generateReportUC{
+					tradesRepository: &mocks.TradesRepositoryMock{
+						FindTradesByRangeFunc: func(context.Context, time.Time, time.Time) ([]entities.Trade, error) {
+							return nil, domain.ErrNotFound
+						},
+					},
+					portfolioRepository: &mocks.PortfolioRepositoryMock{
+						FindOneFunc: func(
+							_ context.Context, id entities.PortfolioID,
+						) (entities.Portfolio, error) {
+							return entities.NewPortfolio(
+								id,
+								vos.ParseToDecimal(100000.0),
+								vos.ParseToDecimal(100000.0),
+								map[string]entities.Position{},
+							)
+						},
+					},
+				}
+			},
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name: "should return err when find portfolio",
+			args: args{
+				ctx: context.TODO(),
+				input: GenerateReportInput{
+					PortfolioID: "02f168da-4ee6-4876-9821-5be6764e6eb1",
+				},
+			},
+			setup: func(t *testing.T) generateReportUC {
+				return generateReportUC{
+					portfolioRepository: &mocks.PortfolioRepositoryMock{
+						FindOneFunc: func(context.Context, entities.PortfolioID) (entities.Portfolio, error) {
+							return entities.Portfolio{}, domain.ErrNotFound
+						},
+					},
+				}
+			},
+			wantErr: domain.ErrNotFound,
+		},
+		{
+			name: "should return err when has invalid portfolio id",
+			args: args{
+				ctx:   context.TODO(),
+				input: GenerateReportInput{},
+			},
+			setup: func(t *testing.T) generateReportUC {
+				return generateReportUC{}
+			},
+			wantErr: domain.ErrMalformedParameters,
+		},
 		{
 			name: "should return a report from March 1, 2021 10:00:00 to 10:20:00",
 			args: args{
@@ -144,6 +287,151 @@ func TestGenerate(t *testing.T) {
 					Timestamp:         time.Date(2021, 3, 1, 10, 20, 0, 0, time.UTC),
 					PortfolioValue:    99919,
 					AccumulatedReturn: -0.00081,
+				},
+			},
+		},
+		{
+			name: "should return err when get price",
+			args: args{
+				ctx: context.TODO(),
+				input: GenerateReportInput{
+					PortfolioID: "02f168da-4ee6-4876-9821-5be6764e6eb1",
+					StartDate:   time.Date(2021, 3, 1, 10, 0, 0, 0, time.UTC),
+					EndDate:     time.Date(2021, 3, 1, 10, 20, 0, 0, time.UTC),
+					Interval:    10 * time.Minute,
+				},
+			},
+			setup: func(t *testing.T) generateReportUC {
+				return generateReportUC{
+					tradesRepository: &mocks.TradesRepositoryMock{
+						FindTradesByRangeFunc: func(ctx context.Context, start, end time.Time) ([]entities.Trade, error) {
+							return []entities.Trade{
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetAID, "A"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.86),
+									200,
+									time.Date(2021, 3, 1, 10, 4, 23, 0, time.UTC),
+								),
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetBID, "B"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.79),
+									100,
+									time.Date(2021, 3, 1, 10, 5, 55, 0, time.UTC),
+								),
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetAID, "A"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.89),
+									300,
+									time.Date(2021, 3, 1, 10, 9, 20, 0, time.UTC),
+								),
+							}, nil
+						},
+					},
+					pricesRepository: &mocks.PricesRepositoryMock{
+						FindOneByTimeFunc: func(_ context.Context, input ports.FindOneByTimeInput) (entities.Price, error) {
+							return entities.Price{}, domain.ErrMalformedParameters
+						},
+					},
+					portfolioRepository: &mocks.PortfolioRepositoryMock{
+						FindOneFunc: func(
+							_ context.Context, id entities.PortfolioID,
+						) (entities.Portfolio, error) {
+							return entities.NewPortfolio(
+								id,
+								vos.ParseToDecimal(100000.0),
+								vos.ParseToDecimal(100000.0),
+								map[string]entities.Position{},
+							)
+						},
+					},
+				}
+			},
+			wantErr: domain.ErrMalformedParameters,
+		},
+		{
+			name: "should return err not found when get price",
+			args: args{
+				ctx: context.TODO(),
+				input: GenerateReportInput{
+					PortfolioID: "02f168da-4ee6-4876-9821-5be6764e6eb1",
+					StartDate:   time.Date(2021, 3, 1, 10, 0, 0, 0, time.UTC),
+					EndDate:     time.Date(2021, 3, 1, 10, 20, 0, 0, time.UTC),
+					Interval:    10 * time.Minute,
+				},
+			},
+			setup: func(t *testing.T) generateReportUC {
+				return generateReportUC{
+					tradesRepository: &mocks.TradesRepositoryMock{
+						FindTradesByRangeFunc: func(ctx context.Context, start, end time.Time) ([]entities.Trade, error) {
+							return []entities.Trade{
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetAID, "A"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.86),
+									200,
+									time.Date(2021, 3, 1, 10, 4, 23, 0, time.UTC),
+								),
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetBID, "B"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.79),
+									100,
+									time.Date(2021, 3, 1, 10, 5, 55, 0, time.UTC),
+								),
+								entities.MustTrade(
+									vos.MustID(uuid.NewString()),
+									entities.MustAsset(assetAID, "A"),
+									vos.SideBuy,
+									vos.ParseToDecimal(23.89),
+									300,
+									time.Date(2021, 3, 1, 10, 9, 20, 0, time.UTC),
+								),
+							}, nil
+						},
+					},
+					pricesRepository: &mocks.PricesRepositoryMock{
+						FindOneByTimeFunc: func(_ context.Context, input ports.FindOneByTimeInput) (entities.Price, error) {
+							return entities.Price{}, domain.ErrNotFound
+						},
+					},
+					portfolioRepository: &mocks.PortfolioRepositoryMock{
+						FindOneFunc: func(
+							_ context.Context, id entities.PortfolioID,
+						) (entities.Portfolio, error) {
+							return entities.NewPortfolio(
+								id,
+								vos.ParseToDecimal(100000.0),
+								vos.ParseToDecimal(100000.0),
+								map[string]entities.Position{},
+							)
+						},
+					},
+				}
+			},
+			wantErr: nil,
+			want: []ports.ReportDTO{
+				{
+					Timestamp:         time.Date(2021, 3, 1, 10, 0, 0, 0, time.UTC),
+					PortfolioValue:    100000,
+					AccumulatedReturn: 0.0,
+				},
+				{
+					Timestamp:         time.Date(2021, 3, 1, 10, 10, 0, 0, time.UTC),
+					PortfolioValue:    85682,
+					AccumulatedReturn: -0.14318,
+				},
+				{
+					Timestamp:         time.Date(2021, 3, 1, 10, 20, 0, 0, time.UTC),
+					PortfolioValue:    85682,
+					AccumulatedReturn: -0.14318,
 				},
 			},
 		},
