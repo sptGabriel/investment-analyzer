@@ -4,15 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/ardanlabs/conf/v3"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/sptGabriel/investment-analyzer/app/analyzer/api"
 	"github.com/sptGabriel/investment-analyzer/domain/challenge"
-	"github.com/sptGabriel/investment-analyzer/domain/reports"
 	"github.com/sptGabriel/investment-analyzer/extensions/gbdb"
 	"github.com/sptGabriel/investment-analyzer/gateways/assets"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres"
@@ -21,6 +25,7 @@ import (
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/prices"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/settings"
 	"github.com/sptGabriel/investment-analyzer/gateways/postgres/trades"
+	"github.com/sptGabriel/investment-analyzer/telemetry"
 	"github.com/sptGabriel/investment-analyzer/telemetry/logging"
 )
 
@@ -33,6 +38,12 @@ var (
 
 type envs struct {
 	AppName string `conf:"env:APP_NAME,required"`
+
+	GracefulShutdown time.Duration `conf:"env:GRACEFUL_SHUTDOWN_TIMEOUT,default:20s"`
+
+	ServerAddr         string        `conf:"env:SERVER_ADDR,default:0.0.0.0:3000"`
+	ServerReadTimeout  time.Duration `conf:"env:SERVER_READ_TIMEOUT,default:30s"`
+	ServerWriteTimeout time.Duration `conf:"env:SERVER_WRITE_TIMEOUT,default:30s"`
 
 	// Postgres
 	DBName                  string `conf:"env:DATABASE_NAME,default:investment_analyzer"`
@@ -90,7 +101,7 @@ func main() {
 }
 
 func startApp(logger *zap.Logger, cfg envs) error {
-	ctx := context.Background()
+	ctx := logging.WithContext(context.Background(), logger)
 
 	dbConn, err := postgres.New(
 		cfg.PGAddress(),
@@ -134,22 +145,78 @@ func startApp(logger *zap.Logger, cfg envs) error {
 		}
 	}
 
-	generateReportUC := reports.NewGenerateReportUC(
-		db, tradeRepository, pricesRepository, portfoliosRepository,
-	)
+	router, err := api.NewServer(logger)
+	if err != nil {
+		return fmt.Errorf("bulding api server: %w", err)
+	}
 
-	start, _ := time.Parse("2006-01-02 15:04:05", "2021-03-01 10:00:00")
-	end, _ := time.Parse("2006-01-02 15:04:05", "2021-03-07 17:50:00")
-	interval := 10 * time.Minute
+	apiServer := http.Server{
+		Addr:         cfg.ServerAddr,
+		Handler:      router,
+		ReadTimeout:  cfg.ServerReadTimeout,
+		WriteTimeout: cfg.ServerWriteTimeout,
+	}
 
-	output, err := generateReportUC.Execute(ctx, reports.GenerateReportInput{
-		PortfolioID: "408186c6-b76a-4ad6-8d4a-9ace3762b997",
-		StartDate:   start,
-		EndDate:     end,
-		Interval:    interval,
+	metricsServer, err := telemetry.NewMetricsServer()
+	if err != nil {
+		return fmt.Errorf("building metrics server: %w", err)
+	}
+
+	// Graceful Shutdown
+	signalCtx, stop := signal.NotifyContext(ctx, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	g, gCtx := errgroup.WithContext(signalCtx)
+
+	g.Go(func() error {
+		logger.Info("starting api server")
+
+		logger.Info("api started",
+			zap.String("address", apiServer.Addr),
+			zap.Duration("read_timeout", apiServer.ReadTimeout),
+			zap.Duration("write_timeout", apiServer.WriteTimeout),
+		)
+
+		return apiServer.ListenAndServe()
 	})
 
-	fmt.Println(err, output)
+	g.Go(func() error {
+		logger.Info("metrics server started",
+			zap.String("address", metricsServer.Addr),
+			zap.Duration("read_timeout", metricsServer.ReadTimeout),
+			zap.Duration("write_timeout", metricsServer.WriteTimeout),
+		)
+
+		return metricsServer.ListenAndServe()
+	})
+
+	g.Go(func() error {
+		<-gCtx.Done()
+
+		logger.Info("interrupt signal received")
+
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), cfg.GracefulShutdown)
+		defer cancel()
+
+		var errs error
+		logger.Info("closing http server")
+		if err := apiServer.Shutdown(timeoutCtx); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to stop api server: %w", err))
+		}
+
+		logger.Info("closing metrics server")
+		if err := metricsServer.Shutdown(timeoutCtx); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("failed to stop metrics server: %w", err))
+		}
+
+		return errs
+	})
+
+	if err := g.Wait(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Fatal("on finishing app", zap.Error(err))
+	}
+
+	stop()
+
+	logger.Info("bye")
 
 	return nil
 }
